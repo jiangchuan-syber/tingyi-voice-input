@@ -15,12 +15,14 @@
 
 ## 规划功能
 
+- [x] 配置与识别管线骨架（local / cloud / hybrid）
 - [ ] 麦克风采集与音量指示
-- [ ] 本地语音识别（Whisper / faster-whisper 等）
-- [ ] 可选云端识别（DeepSeek、OpenAI 等，需自行配置 API）
-- [ ] 全局快捷键（开始/停止录音、重试、撤销）
+- [ ] 本地 SenseVoice（sherpa-onnx）
+- [ ] 本地 faster-whisper 备选
+- [ ] 云端 OpenAI 兼容 API
+- [ ] 全局快捷键（Push-to-talk）
 - [ ] 识别结果预览与一键粘贴
-- [ ] 简单设置页：模型、语言、热键、是否自动粘贴
+- [ ] 设置页：模型、语言、热键、ASR 模式
 
 ## 快速开始（开发中）
 
@@ -39,12 +41,36 @@ pip install -r requirements.txt
 python -m tingyi
 ```
 
-## 技术方向（草案）
+## 架构：本地为主 + 可选云端
 
-- **采集**：`sounddevice` / `pyaudio`
-- **识别**：`faster-whisper`（本地）或兼容 OpenAI 格式的 HTTP API
-- **输入注入**：`pyperclip` + `pyautogui` / `keyboard`（Windows）
-- **界面**：系统托盘 + 可选轻量设置窗口（`pystray` / `tkinter`）
+```
+麦克风 → VAD（本地）→ ASR
+                         ├─ 本地 SenseVoice / faster-whisper（默认）
+                         └─ 云端 Whisper API（可选，HYBRID 时作回退）
+                              ↓
+                         预览 → 粘贴到焦点窗口
+```
+
+| 模式 | 行为 |
+|------|------|
+| `local` | 仅本地，音频不出本机 |
+| `cloud` | 仅云端，需配置 API Key |
+| `hybrid`（**默认**） | 本地优先；本地不可用或失败时回退云端 |
+
+**本地首选**：SenseVoice Small（INT8，sherpa-onnx）— 中文快、约 240MB。  
+**本地备选**：faster-whisper small — 中英混说、专有名词更稳。  
+**云端**：OpenAI Whisper API 或任意 OpenAI 兼容端点（`.env` 配置）。
+
+配置见 `.env.example`，复制为 `.env` 后修改。
+
+## 技术栈
+
+- **采集**：`sounddevice`
+- **VAD**：Silero（本地）
+- **本地 ASR**：sherpa-onnx + SenseVoice / faster-whisper
+- **云端 ASR**：OpenAI 兼容 HTTP API
+- **输入注入**：`pyperclip` + `keyboard`（Windows 全局热键）
+- **界面**：系统托盘 + 轻量设置（后续）
 
 ## 隐私说明
 
@@ -54,7 +80,7 @@ python -m tingyi
 
 ## 开发环境
 
-- 本机 Cursor 工作区：`e:\听译`
+- 本机 Cursor 工作区：`e:\tingyi`
 - 关联 GitHub：[jiangchuan-syber/tingyi-voice-input](https://github.com/jiangchuan-syber/tingyi-voice-input)
 
 ## 许可证

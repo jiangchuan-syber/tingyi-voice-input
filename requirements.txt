@@ -1,5 +1,8 @@
-# 核心依赖（随实现逐步启用）
-# sounddevice>=0.4.6
-# faster-whisper>=1.0.0
+python-dotenv>=1.0.0
+numpy>=1.24.0
+soundfile>=0.12.0
+sherpa-onnx>=1.10.0
+faster-whisper>=1.0.0
+# openai>=1.40.0
 # pyperclip>=1.8.2
-# python-dotenv>=1.0.0
+# keyboard>=0.13.5
