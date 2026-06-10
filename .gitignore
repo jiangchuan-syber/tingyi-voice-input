@@ -6,10 +6,11 @@ __pycache__/
 venv/
 .env
 
-# 模型与音频缓存（本地）
-models/
-cache/
-recordings/
+# 模型与音频缓存（本地，仅项目根目录）
+/models/
+/cache/
+/recordings/
+/dist/
 *.wav
 *.mp3
 *.m4a

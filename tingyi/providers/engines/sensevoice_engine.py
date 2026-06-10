@@ -5,17 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from tingyi.audio.wav import read_wav_mono_16k
-from tingyi.models.paths import sensevoice_model_files
-from tingyi.settings import ROOT, LocalAsrConfig
-
-
-def _sherpa_path(path: Path) -> str:
-    """sherpa-onnx 在 Windows 上对含中文等非 ASCII 的绝对路径支持不佳，改用相对路径。"""
-    try:
-        rel = path.relative_to(ROOT)
-        return rel.as_posix()
-    except ValueError:
-        return path.as_posix()
+from tingyi.models.paths import sensevoice_model_files, sherpa_relative_path
+from tingyi.settings import LocalAsrConfig
 
 
 class SenseVoiceEngine:
@@ -51,8 +42,8 @@ class SenseVoiceEngine:
         model_path, tokens_path = files
         lang = "" if self.config.language in ("auto", "") else self.config.language
         self._recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
-            model=_sherpa_path(model_path),
-            tokens=_sherpa_path(tokens_path),
+            model=sherpa_relative_path(model_path),
+            tokens=sherpa_relative_path(tokens_path),
             num_threads=2,
             use_itn=True,
             language=lang,

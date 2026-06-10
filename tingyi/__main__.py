@@ -27,12 +27,51 @@ def main() -> None:
         action="store_true",
         help="下载 SenseVoice 本地模型",
     )
+    parser.add_argument(
+        "--listen",
+        nargs="?",
+        const=0.0,
+        type=float,
+        metavar="SECONDS",
+        help="麦克风录音并识别；不带参数则 VAD 自动检测说话结束，带数字则固定秒数",
+    )
     args = parser.parse_args()
 
     if args.download_models:
-        from tingyi.models.download import download_sensevoice
+        from tingyi.models.download import download_sensevoice, download_silero_vad
 
         download_sensevoice()
+        download_silero_vad()
+        return
+
+    if args.listen is not None:
+        from datetime import datetime
+
+        from tingyi.audio.record import record_to_wav
+        from tingyi.audio.vad import record_with_vad_to_wav
+        from tingyi.settings import AppSettings, AsrMode, LocalEngine
+
+        settings = AppSettings.from_env()
+        settings.asr_mode = AsrMode.LOCAL
+        settings.local.engine = LocalEngine.SENSEVOICE
+        pipeline = TingyiPipeline(settings)
+        if not pipeline.asr.local.is_available():
+            print("SenseVoice 不可用，请先运行: python -m tingyi --download-models")
+            return
+
+        wav_path = ROOT / "recordings" / f"listen_{datetime.now():%Y%m%d_%H%M%S}.wav"
+        try:
+            if args.listen <= 0:
+                record_with_vad_to_wav(wav_path, config=settings.vad)
+            else:
+                record_to_wav(wav_path, seconds=args.listen)
+        except (TimeoutError, RuntimeError) as exc:
+            print(exc)
+            return
+        result = pipeline.transcribe_file(wav_path)
+        print(f"\n[SenseVoice] {result.latency_ms:.0f} ms")
+        print(result.text or "（未识别到文字）")
+        print(f"\n录音已保存：{wav_path}")
         return
 
     pipeline = TingyiPipeline()
@@ -47,6 +86,8 @@ def main() -> None:
         print(result.text)
     else:
         print("\nPhase 1 开发中：热键录音 → 识别 → 粘贴。")
+        print("体验 SenseVoice（自动检测说话）：python -m tingyi --listen")
+        print("固定时长录音：python -m tingyi --listen 5")
         print("调试：python -m tingyi --transcribe path/to/audio.wav")
 
 
