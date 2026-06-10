@@ -1,0 +1,5 @@
+# 核心依赖（随实现逐步启用）
+# sounddevice>=0.4.6
+# faster-whisper>=1.0.0
+# pyperclip>=1.8.2
+# python-dotenv>=1.0.0

@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.env
+
+# 模型与音频缓存（本地）
+models/
+cache/
+recordings/
+*.wav
+*.mp3
+*.m4a
+
+# IDE / 编辑器
+.cursor/
+.vscode/
+.idea/
+
+# 系统
+Thumbs.db
+.DS_Store
