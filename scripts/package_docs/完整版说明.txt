@@ -1,0 +1,20 @@
+听译 tingyi-voice-input 完整版（含本地模型）
+
+【第一次使用】
+1. 双击 setup.bat（安装依赖，只需一次）
+2. 双击 listen.bat（对着麦克风说话）
+
+【说明】
+- 批处理请用 setup.bat / listen.bat（英文文件名，避免乱码）
+- 已含 SenseVoice + Silero VAD，无需 --download-models
+
+【PowerShell】
+  cd 本目录
+  .\.venv\Scripts\Activate.ps1
+  python -m tingyi --listen
+
+【麦克风】
+Windows：设置 - 隐私 - 麦克风 - 允许桌面应用
+
+【模型】
+勿删 models 文件夹

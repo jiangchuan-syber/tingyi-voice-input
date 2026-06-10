@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
-
 import os
+import sys
+from pathlib import Path
 
 from tingyi import __version__
 from tingyi.pipeline import TingyiPipeline
@@ -16,7 +16,19 @@ from tingyi.settings import ROOT
 def main() -> None:
     # sherpa-onnx 需从项目根目录解析相对模型路径
     os.chdir(ROOT)
+
+    if getattr(sys, "frozen", False) and len(sys.argv) == 1:
+        from tingyi.app.tray import run_desktop_app
+
+        run_desktop_app()
+        return
+
     parser = argparse.ArgumentParser(description="听译 · 个人语音转文字输入")
+    parser.add_argument(
+        "--app",
+        action="store_true",
+        help="启动桌面版（系统托盘 + 全局热键，识别后粘贴到当前输入框）",
+    )
     parser.add_argument(
         "--transcribe",
         type=Path,
@@ -36,6 +48,12 @@ def main() -> None:
         help="麦克风录音并识别；不带参数则 VAD 自动检测说话结束，带数字则固定秒数",
     )
     args = parser.parse_args()
+
+    if args.app:
+        from tingyi.app.tray import run_desktop_app
+
+        run_desktop_app()
+        return
 
     if args.download_models:
         from tingyi.models.download import download_sensevoice, download_silero_vad
@@ -85,9 +103,9 @@ def main() -> None:
             print("(云端回退)")
         print(result.text)
     else:
-        print("\nPhase 1 开发中：热键录音 → 识别 → 粘贴。")
+        print("\n桌面版（推荐）：python -m tingyi --app")
+        print("  热键默认 F9 → 说话 → 自动粘贴到微信/Cursor 等输入框")
         print("体验 SenseVoice（自动检测说话）：python -m tingyi --listen")
-        print("固定时长录音：python -m tingyi --listen 5")
         print("调试：python -m tingyi --transcribe path/to/audio.wav")
 
 

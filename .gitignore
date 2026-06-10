@@ -11,6 +11,7 @@ venv/
 /cache/
 /recordings/
 /dist/
+/build/
 *.wav
 *.mp3
 *.m4a

@@ -51,8 +51,13 @@ class SenseVoiceEngine:
         return self._recognizer
 
     def transcribe(self, audio_path: Path, language: str) -> str:
-        recognizer = self._get_recognizer()
         samples, sample_rate = read_wav_mono_16k(audio_path)
+        return self.transcribe_samples(samples, sample_rate, language)
+
+    def transcribe_samples(
+        self, samples, sample_rate: int, language: str
+    ) -> str:
+        recognizer = self._get_recognizer()
         stream = recognizer.create_stream()
         stream.accept_waveform(sample_rate, samples)
         recognizer.decode_stream(stream)

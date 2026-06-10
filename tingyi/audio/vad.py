@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
+from typing import Callable
 
 import numpy as np
 
@@ -16,15 +17,14 @@ from tingyi.settings import VadConfig
 SAMPLE_RATE = 16000
 
 
-def _open_mic_stream():
+def _open_mic_stream(sample_rate: int = SAMPLE_RATE):
     import sounddevice as sd
 
     try:
-        return sd.InputStream(channels=1, dtype="float32", samplerate=SAMPLE_RATE)
+        return sd.InputStream(channels=1, dtype="float32", samplerate=sample_rate)
     except Exception as exc:
         raise RuntimeError(
-            "无法打开麦克风。请在 Cursor 集成终端或系统 PowerShell 中运行，"
-            "并检查 Windows 隐私设置 → 麦克风是否允许终端/Python 访问。"
+            "无法打开麦克风。请检查 Windows 隐私设置 → 麦克风是否允许本程序访问。"
         ) from exc
 
 
@@ -46,26 +46,25 @@ def _create_vad(config: VadConfig, *, max_record_seconds: float = 60.0):
     return sherpa_onnx.VoiceActivityDetector(vad_config, buffer_size_in_seconds=60)
 
 
-def record_with_vad_to_wav(
-    path: Path,
+def record_with_vad(
     *,
     config: VadConfig | None = None,
     max_wait_seconds: float = 20.0,
     max_record_seconds: float = 60.0,
-) -> Path:
-    """等待用户开口，说完（静音）后自动结束并保存 WAV。"""
-    import soundfile as sf
-
+    on_listening: Callable[[], None] | None = None,
+    quiet: bool = False,
+) -> tuple[np.ndarray, int]:
+    """等待用户开口，说完（静音）后返回 (samples, sample_rate)。"""
     vad_cfg = config or VadConfig()
     sample_rate = vad_cfg.sample_rate
-    path.parent.mkdir(parents=True, exist_ok=True)
 
     vad = _create_vad(vad_cfg, max_record_seconds=max_record_seconds)
     window_size = vad.config.silero_vad.window_size
     chunk_samples = int(0.1 * sample_rate)
 
-    print(f"麦克风：{default_input_device_label()}")
-    print("请开始说话（检测到语音后自动录音，停顿约 0.5 秒后结束）…")
+    if not quiet:
+        print(f"麦克风：{default_input_device_label()}")
+        print("请开始说话（检测到语音后自动录音，停顿约 0.5 秒后结束）…")
 
     speech_started = False
     wait_started = time.monotonic()
@@ -73,7 +72,7 @@ def record_with_vad_to_wav(
     offset = 0
     buffer = np.array([], dtype=np.float32)
 
-    with _open_mic_stream() as stream:
+    with _open_mic_stream(sample_rate) as stream:
         while True:
             if not speech_started and time.monotonic() - wait_started > max_wait_seconds:
                 raise TimeoutError("等待超时：未检测到语音，请检查麦克风或提高音量。")
@@ -93,7 +92,10 @@ def record_with_vad_to_wav(
                 if vad.is_speech_detected() and not speech_started:
                     speech_started = True
                     speech_started_at = time.monotonic()
-                    print("正在听…")
+                    if on_listening:
+                        on_listening()
+                    elif not quiet:
+                        print("正在听…")
 
                 if speech_started and not vad.empty():
                     segment = np.array(vad.front.samples, dtype=np.float32)
@@ -101,12 +103,32 @@ def record_with_vad_to_wav(
                     if segment.size == 0:
                         raise RuntimeError("未录到有效语音，请重试。")
                     peak = float(np.max(np.abs(segment)))
-                    if peak < 0.01:
+                    if peak < 0.01 and not quiet:
                         print("（提示：音量很低，请检查麦克风是否静音或未选对设备）")
-                    sf.write(str(path), segment, sample_rate)
-                    print("检测到停顿，录音结束。")
-                    return path
+                    elif not quiet:
+                        print("检测到停顿，录音结束。")
+                    return segment, sample_rate
 
             if not speech_started and len(buffer) > 10 * window_size:
                 offset -= len(buffer) - 10 * window_size
                 buffer = buffer[-10 * window_size :]
+
+
+def record_with_vad_to_wav(
+    path: Path,
+    *,
+    config: VadConfig | None = None,
+    max_wait_seconds: float = 20.0,
+    max_record_seconds: float = 60.0,
+) -> Path:
+    """等待用户开口，说完（静音）后自动结束并保存 WAV。"""
+    import soundfile as sf
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    segment, sample_rate = record_with_vad(
+        config=config,
+        max_wait_seconds=max_wait_seconds,
+        max_record_seconds=max_record_seconds,
+    )
+    sf.write(str(path), segment, sample_rate)
+    return path

@@ -10,7 +10,16 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parent.parent
+
+def get_app_root() -> Path:
+    import sys
+
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent
+
+
+ROOT = get_app_root()
 load_dotenv(ROOT / ".env")
 
 
@@ -60,13 +69,14 @@ class VadConfig:
     engine: str = "silero"  # silero | webrtc
     sample_rate: int = 16000
     min_speech_ms: int = 250
-    min_silence_ms: int = 500
+    min_silence_ms: int = 1200  # 停顿多久判定「说完了」（原 500ms 易截断）
     hangover_ms: int = 300  # 句尾保留，防截断
 
 
 @dataclass
 class InputConfig:
-    hotkey_record: str = "ctrl+shift+space"  # 按住说话（Push-to-talk）
+    # 避免 ctrl+shift+* / ctrl+space：中文 Windows 常绑输入法切换
+    hotkey_record: str = "f9"
     auto_paste: bool = True
     preview_before_paste: bool = False
 
@@ -102,6 +112,17 @@ class AppSettings:
                 device=os.getenv("TINGYI_LOCAL_DEVICE", "cpu"),
                 compute_type=os.getenv("TINGYI_LOCAL_COMPUTE_TYPE", "int8"),
                 language=os.getenv("TINGYI_LOCAL_LANGUAGE", "zh"),
+            ),
+            vad=VadConfig(
+                min_speech_ms=int(os.getenv("TINGYI_VAD_MIN_SPEECH_MS", "250")),
+                min_silence_ms=int(os.getenv("TINGYI_VAD_MIN_SILENCE_MS", "1200")),
+            ),
+            input=InputConfig(
+                hotkey_record=os.getenv("TINGYI_HOTKEY_RECORD", "f9"),
+                auto_paste=os.getenv("TINGYI_AUTO_PASTE", "true").lower()
+                in ("1", "true", "yes"),
+                preview_before_paste=os.getenv("TINGYI_PREVIEW_BEFORE_PASTE", "false").lower()
+                in ("1", "true", "yes"),
             ),
         )
 
