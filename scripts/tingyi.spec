@@ -5,7 +5,7 @@ from PyInstaller.utils.hooks import collect_all
 
 ROOT = os.path.abspath(os.path.join(SPECPATH, ".."))
 
-datas = []
+datas = [(os.path.join(ROOT, "dictionary.json"), ".")]
 binaries = []
 hiddenimports = [
     "tingyi",
@@ -14,7 +14,13 @@ hiddenimports = [
     "tingyi.app.service",
     "tingyi.app.hotkey",
     "tingyi.input.paste",
+    "tingyi.text",
+    "tingyi.text.dictionary",
+    "tingyi.text.refine",
+    "tingyi.text.refine_llm",
+    "tingyi.text.pipeline",
     "tingyi.models",
+    "openai",
     "tingyi.models.download",
     "tingyi.models.paths",
     "sounddevice",

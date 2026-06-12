@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import threading
 import time
 from pathlib import Path
 from typing import Callable
@@ -15,6 +16,8 @@ from tingyi.models.paths import sherpa_relative_path, silero_vad_model_file
 from tingyi.settings import VadConfig
 
 SAMPLE_RATE = 16000
+
+SegmentCallback = Callable[[np.ndarray, int], None]
 
 
 def _open_mic_stream(sample_rate: int = SAMPLE_RATE):
@@ -46,16 +49,19 @@ def _create_vad(config: VadConfig, *, max_record_seconds: float = 60.0):
     return sherpa_onnx.VoiceActivityDetector(vad_config, buffer_size_in_seconds=60)
 
 
-def record_with_vad(
+def _vad_listen_loop(
     *,
-    config: VadConfig | None = None,
-    max_wait_seconds: float = 20.0,
+    config: VadConfig,
+    on_segment: SegmentCallback,
+    should_stop: Callable[[], bool],
     max_record_seconds: float = 60.0,
-    on_listening: Callable[[], None] | None = None,
+    on_speech_start: Callable[[], None] | None = None,
     quiet: bool = False,
-) -> tuple[np.ndarray, int]:
-    """等待用户开口，说完（静音）后返回 (samples, sample_rate)。"""
-    vad_cfg = config or VadConfig()
+    continuous: bool = False,
+    max_wait_seconds: float = 20.0,
+) -> None:
+    """VAD 主循环；continuous=True 时每段结束后继续监听下一句。"""
+    vad_cfg = config
     sample_rate = vad_cfg.sample_rate
 
     vad = _create_vad(vad_cfg, max_record_seconds=max_record_seconds)
@@ -64,7 +70,10 @@ def record_with_vad(
 
     if not quiet:
         print(f"麦克风：{default_input_device_label()}")
-        print("请开始说话（检测到语音后自动录音，停顿约 0.5 秒后结束）…")
+        if continuous:
+            print("持续监听中（停顿约 0.5 秒后自动识别每一段）…")
+        else:
+            print("请开始说话（检测到语音后自动录音，停顿约 0.5 秒后结束）…")
 
     speech_started = False
     wait_started = time.monotonic()
@@ -73,12 +82,20 @@ def record_with_vad(
     buffer = np.array([], dtype=np.float32)
 
     with _open_mic_stream(sample_rate) as stream:
-        while True:
-            if not speech_started and time.monotonic() - wait_started > max_wait_seconds:
+        while not should_stop():
+            if (
+                not continuous
+                and not speech_started
+                and time.monotonic() - wait_started > max_wait_seconds
+            ):
                 raise TimeoutError("等待超时：未检测到语音，请检查麦克风或提高音量。")
 
             if speech_started and speech_started_at is not None:
                 if time.monotonic() - speech_started_at > max_record_seconds:
+                    if continuous:
+                        speech_started = False
+                        speech_started_at = None
+                        continue
                     raise TimeoutError("录音过长，已自动停止。请缩短单次说话长度。")
 
             samples, _ = stream.read(chunk_samples)
@@ -92,8 +109,8 @@ def record_with_vad(
                 if vad.is_speech_detected() and not speech_started:
                     speech_started = True
                     speech_started_at = time.monotonic()
-                    if on_listening:
-                        on_listening()
+                    if on_speech_start:
+                        on_speech_start()
                     elif not quiet:
                         print("正在听…")
 
@@ -101,17 +118,114 @@ def record_with_vad(
                     segment = np.array(vad.front.samples, dtype=np.float32)
                     vad.pop()
                     if segment.size == 0:
+                        if continuous:
+                            speech_started = False
+                            speech_started_at = None
+                            continue
                         raise RuntimeError("未录到有效语音，请重试。")
-                    peak = float(np.max(np.abs(segment)))
-                    if peak < 0.01 and not quiet:
-                        print("（提示：音量很低，请检查麦克风是否静音或未选对设备）")
-                    elif not quiet:
-                        print("检测到停顿，录音结束。")
-                    return segment, sample_rate
+                    if not quiet:
+                        print("检测到停顿，提交识别。")
+                    on_segment(segment, sample_rate)
+                    speech_started = False
+                    speech_started_at = None
+                    wait_started = time.monotonic()
+                    if not continuous:
+                        return
 
             if not speech_started and len(buffer) > 10 * window_size:
                 offset -= len(buffer) - 10 * window_size
                 buffer = buffer[-10 * window_size :]
+
+
+class ContinuousVadCapture:
+    """持续监听：每段静音结束后回调 on_segment，不阻塞麦克风。"""
+
+    def __init__(
+        self,
+        config: VadConfig | None = None,
+        *,
+        max_record_seconds: float = 60.0,
+    ) -> None:
+        self.config = config or VadConfig()
+        self.max_record_seconds = max_record_seconds
+        self._stop = threading.Event()
+        self._thread: threading.Thread | None = None
+
+    @property
+    def is_running(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(
+        self,
+        on_segment: SegmentCallback,
+        *,
+        on_speech_start: Callable[[], None] | None = None,
+        quiet: bool = True,
+    ) -> None:
+        if self.is_running:
+            return
+        self._stop.clear()
+        self._thread = threading.Thread(
+            target=self._run,
+            args=(on_segment, on_speech_start, quiet),
+            daemon=True,
+            name="tingyi-vad-capture",
+        )
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=5.0)
+            self._thread = None
+
+    def _run(
+        self,
+        on_segment: SegmentCallback,
+        on_speech_start: Callable[[], None] | None,
+        quiet: bool,
+    ) -> None:
+        try:
+            _vad_listen_loop(
+                config=self.config,
+                on_segment=on_segment,
+                should_stop=self._stop.is_set,
+                max_record_seconds=self.max_record_seconds,
+                on_speech_start=on_speech_start,
+                quiet=quiet,
+                continuous=True,
+            )
+        except Exception:
+            if not self._stop.is_set():
+                raise
+
+
+def record_with_vad(
+    *,
+    config: VadConfig | None = None,
+    max_wait_seconds: float = 20.0,
+    max_record_seconds: float = 60.0,
+    on_listening: Callable[[], None] | None = None,
+    quiet: bool = False,
+) -> tuple[np.ndarray, int]:
+    """等待用户开口，说完（静音）后返回 (samples, sample_rate)。"""
+    result: dict[str, np.ndarray | int] = {}
+
+    def _capture(segment: np.ndarray, sample_rate: int) -> None:
+        result["samples"] = segment
+        result["sample_rate"] = sample_rate
+
+    _vad_listen_loop(
+        config=config or VadConfig(),
+        on_segment=_capture,
+        should_stop=lambda: "samples" in result,
+        max_record_seconds=max_record_seconds,
+        on_speech_start=on_listening,
+        quiet=quiet,
+        continuous=False,
+        max_wait_seconds=max_wait_seconds,
+    )
+    return result["samples"], int(result["sample_rate"])  # type: ignore[return-value]
 
 
 def record_with_vad_to_wav(

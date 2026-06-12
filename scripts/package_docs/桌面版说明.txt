@@ -12,7 +12,7 @@
   可选：ctrl+alt+v 、 f8 、 ctrl+alt+.
 
 【改停顿时间】觉得结束太快：
-  TINGYI_VAD_MIN_SILENCE_MS=1500
-  （单位毫秒，1500=1.5秒，2000=2秒）
+  TINGYI_VAD_MIN_SILENCE_MS=500
+  （单位毫秒，500=0.5秒；若句尾被截断可改为 800~1200）
 
 【注意】勿删 models/；热键无效可管理员运行

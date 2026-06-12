@@ -11,24 +11,23 @@
 | 使用场景 | 个人写作、笔记、聊天、代码注释等「边说边打」 |
 | 隐私 | 默认可完全离线；可选接入云端 API |
 | 平台 | Windows（首期） |
-| 交互 | 全局热键唤起 → 录音 → 识别 → 粘贴到光标处 |
+| 交互 | F9 开关持续监听 → 停顿 0.5 秒自动切段识别 → 粘贴（录音不中断） |
 
-## v0.2.0 已实现
+## v0.3.0 已实现
 
-- [x] 配置与识别管线（local / cloud / hybrid）
+- [x] F9 开关持续监听 + 0.5s 静音自动切段 + 异步识别粘贴
 - [x] 本地 SenseVoice（sherpa-onnx INT8）
-- [x] 模型一键下载（SenseVoice + Silero VAD）
-- [x] 麦克风录音 + VAD 自动检测说话结束（`--listen`）
-- [x] 音频文件识别（`--transcribe`）
-- [x] faster-whisper 备选引擎（代码就绪，需自行下载模型）
+- [x] **个人词典**（`dictionary.json`，含项目名与常见 AI 英文模型）
+- [x] **规则润色**（去嗯/那个等口头语）
+- [x] **DeepSeek LLM 润色**（可选，与 `工作经历挖掘` 共用 `DEEPSEEK_*`）
+- [x] 先贴草稿、后台润色替换（`TINGYI_REFINE_ASYNC=true`）
+- [x] 桌面托盘 `--app`
 
 ## 规划中
 
 - [ ] 流式预览（边说边出字）
-- [ ] 全局快捷键（Push-to-talk）
-- [ ] 识别结果预览与一键粘贴
-- [ ] 设置页：模型、语言、热键、ASR 模式
-- [ ] 云端 OpenAI 兼容 API 完整联调
+- [ ] 终端 Shift+Insert 粘贴适配
+- [ ] 设置页 UI
 
 ## 快速开始
 
@@ -55,7 +54,28 @@ python -m tingyi --listen
 
 # 识别已有音频文件
 python -m tingyi --transcribe path\to\audio.wav
+
+# 桌面版（F9 持续监听）
+python -m tingyi --app
+
+# 测试词典 / 规则润色
+python -m tingyi --test-dictionary "听易项目用deep seek"
+python -m tingyi --test-refine "嗯那个我想测试gpt四"
 ```
+
+### DeepSeek 润色配置
+
+复制 `e:\工作经历挖掘\.env` 中的 `DEEPSEEK_API_KEY` 到听译根目录 `.env`，或：
+
+```ini
+DEEPSEEK_API_KEY=你的密钥
+DEEPSEEK_MODEL=deepseek-v4-flash
+TINGYI_REFINE_ASYNC=true
+```
+
+### 个人词典
+
+编辑根目录 `dictionary.json`，或用户目录 `%USERPROFILE%\.tingyi\dictionary.json`（优先）。
 
 > **麦克风权限**：请在 Cursor 集成终端或系统 PowerShell 中运行，并确保 Windows **设置 → 隐私 → 麦克风** 已允许终端/Python 访问。
 

@@ -40,7 +40,7 @@ def run_desktop_app() -> None:
 
     import pystray
 
-    hotkey_mgr = HotkeyManager(service.hotkey_label(), service.run_once)
+    hotkey_mgr = HotkeyManager(service.hotkey_label(), service.toggle_listening)
     hotkey_mgr.start()
 
     icon_holder: dict[str, pystray.Icon | None] = {"icon": None}
@@ -55,6 +55,8 @@ def run_desktop_app() -> None:
     hotkey = service.hotkey_label()
 
     def on_quit(icon: pystray.Icon, _item) -> None:
+        if service.is_listening():
+            service.toggle_listening()
         hotkey_mgr.stop()
         icon.stop()
 
@@ -64,7 +66,10 @@ def run_desktop_app() -> None:
             lambda *_: None,
             enabled=False,
         ),
-        pystray.MenuItem("说一句话并输入到当前窗口", lambda *_: service.run_once()),
+        pystray.MenuItem(
+            "开启/关闭持续监听",
+            lambda *_: service.toggle_listening(),
+        ),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("退出", on_quit),
     )
@@ -72,7 +77,7 @@ def run_desktop_app() -> None:
     icon = pystray.Icon(
         "tingyi",
         _make_icon(),
-        f"听译 · {hotkey} 语音输入",
+        f"听译 · {hotkey} 开关监听",
         menu,
     )
     icon_holder["icon"] = icon

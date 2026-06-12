@@ -69,7 +69,7 @@ class VadConfig:
     engine: str = "silero"  # silero | webrtc
     sample_rate: int = 16000
     min_speech_ms: int = 250
-    min_silence_ms: int = 1200  # 停顿多久判定「说完了」（原 500ms 易截断）
+    min_silence_ms: int = 500  # 停止说话后静音多久判定「说完了」
     hangover_ms: int = 300  # 句尾保留，防截断
 
 
@@ -82,12 +82,23 @@ class InputConfig:
 
 
 @dataclass
+class TextPostConfig:
+    dictionary_enabled: bool = True
+    dictionary_path: Path = field(default_factory=lambda: ROOT / "dictionary.json")
+    rule_refine_enabled: bool = True
+    # 有 DEEPSEEK_API_KEY 时默认开启；可用 TINGYI_REFINE_ENABLED=false 关闭
+    llm_refine_enabled: bool | None = None
+    llm_refine_async: bool = True  # True=先贴草稿，后台 LLM 再替换
+
+
+@dataclass
 class AppSettings:
     asr_mode: AsrMode = AsrMode.HYBRID
     local: LocalAsrConfig = field(default_factory=LocalAsrConfig)
     cloud: CloudAsrConfig = field(default_factory=CloudAsrConfig)
     vad: VadConfig = field(default_factory=VadConfig)
     input: InputConfig = field(default_factory=InputConfig)
+    text: TextPostConfig = field(default_factory=TextPostConfig)
 
     @classmethod
     def from_env(cls) -> AppSettings:
@@ -115,7 +126,7 @@ class AppSettings:
             ),
             vad=VadConfig(
                 min_speech_ms=int(os.getenv("TINGYI_VAD_MIN_SPEECH_MS", "250")),
-                min_silence_ms=int(os.getenv("TINGYI_VAD_MIN_SILENCE_MS", "1200")),
+                min_silence_ms=int(os.getenv("TINGYI_VAD_MIN_SILENCE_MS", "500")),
             ),
             input=InputConfig(
                 hotkey_record=os.getenv("TINGYI_HOTKEY_RECORD", "f9"),
@@ -124,7 +135,31 @@ class AppSettings:
                 preview_before_paste=os.getenv("TINGYI_PREVIEW_BEFORE_PASTE", "false").lower()
                 in ("1", "true", "yes"),
             ),
+            text=_text_config_from_env(),
         )
 
     def cloud_available(self) -> bool:
         return bool(self.cloud.api_key.strip())
+
+
+def _text_config_from_env() -> TextPostConfig:
+    refine_flag = os.getenv("TINGYI_REFINE_ENABLED", "auto").lower()
+    llm_enabled: bool | None
+    if refine_flag in ("0", "false", "no", "off"):
+        llm_enabled = False
+    elif refine_flag in ("1", "true", "yes", "on"):
+        llm_enabled = True
+    else:
+        llm_enabled = None
+
+    dict_path = os.getenv("TINGYI_DICTIONARY_PATH", "").strip()
+    return TextPostConfig(
+        dictionary_enabled=os.getenv("TINGYI_DICTIONARY_ENABLED", "true").lower()
+        in ("1", "true", "yes"),
+        dictionary_path=Path(dict_path) if dict_path else ROOT / "dictionary.json",
+        rule_refine_enabled=os.getenv("TINGYI_RULE_REFINE_ENABLED", "true").lower()
+        in ("1", "true", "yes"),
+        llm_refine_enabled=llm_enabled,
+        llm_refine_async=os.getenv("TINGYI_REFINE_ASYNC", "true").lower()
+        in ("1", "true", "yes"),
+    )

@@ -40,6 +40,18 @@ def main() -> None:
         help="下载 SenseVoice 本地模型",
     )
     parser.add_argument(
+        "--test-dictionary",
+        type=str,
+        metavar="TEXT",
+        help="测试个人词典替换",
+    )
+    parser.add_argument(
+        "--test-refine",
+        type=str,
+        metavar="TEXT",
+        help="测试规则润色（含词典）",
+    )
+    parser.add_argument(
         "--listen",
         nargs="?",
         const=0.0,
@@ -53,6 +65,20 @@ def main() -> None:
         from tingyi.app.tray import run_desktop_app
 
         run_desktop_app()
+        return
+
+    if args.test_dictionary:
+        from tingyi.text.dictionary import apply_dictionary, load_dictionary
+
+        entries = load_dictionary()
+        print(apply_dictionary(args.test_dictionary, entries))
+        return
+
+    if args.test_refine:
+        from tingyi.text.pipeline import TextPostProcessor
+
+        proc = TextPostProcessor()
+        print(proc.process_draft_only(args.test_refine))
         return
 
     if args.download_models:
@@ -104,7 +130,7 @@ def main() -> None:
         print(result.text)
     else:
         print("\n桌面版（推荐）：python -m tingyi --app")
-        print("  热键默认 F9 → 说话 → 自动粘贴到微信/Cursor 等输入框")
+        print("  热键默认 F9 → 开关持续监听；停顿 0.5 秒自动识别并粘贴，可连续多句")
         print("体验 SenseVoice（自动检测说话）：python -m tingyi --listen")
         print("调试：python -m tingyi --transcribe path/to/audio.wav")
 
