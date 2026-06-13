@@ -18,6 +18,9 @@ def main() -> None:
     os.chdir(ROOT)
 
     if getattr(sys, "frozen", False) and len(sys.argv) == 1:
+        from tingyi.log_config import setup_logging
+
+        setup_logging()
         from tingyi.app.tray import run_desktop_app
 
         run_desktop_app()
@@ -59,7 +62,47 @@ def main() -> None:
         metavar="SECONDS",
         help="麦克风录音并识别；不带参数则 VAD 自动检测说话结束，带数字则固定秒数",
     )
+    parser.add_argument(
+        "--show-log",
+        nargs="?",
+        const=80,
+        type=int,
+        metavar="LINES",
+        help="查看日志文件末尾 N 行（默认 80）",
+    )
+    parser.add_argument(
+        "--open-log",
+        action="store_true",
+        help="打开日志文件",
+    )
+    parser.add_argument(
+        "--log-level",
+        type=str,
+        default="",
+        help="日志级别：DEBUG / INFO / WARNING（也可设 TINGYI_LOG_LEVEL）",
+    )
     args = parser.parse_args()
+
+    if args.log_level:
+        os.environ["TINGYI_LOG_LEVEL"] = args.log_level.upper()
+
+    if args.show_log is not None and args.open_log:
+        parser.error("--show-log 与 --open-log 不能同时使用")
+
+    if args.show_log is not None:
+        from tingyi.log_config import setup_logging, tail_log
+
+        setup_logging(console=False)
+        print(tail_log(args.show_log))
+        return
+
+    if args.open_log:
+        from tingyi.log_config import open_log_file, setup_logging
+
+        setup_logging(console=False)
+        path = open_log_file()
+        print(f"已打开日志：{path}")
+        return
 
     if args.app:
         from tingyi.app.tray import run_desktop_app

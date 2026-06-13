@@ -68,9 +68,13 @@ class VadConfig:
     enabled: bool = True
     engine: str = "silero"  # silero | webrtc
     sample_rate: int = 16000
-    min_speech_ms: int = 250
-    min_silence_ms: int = 500  # 停止说话后静音多久判定「说完了」
-    hangover_ms: int = 300  # 句尾保留，防截断
+    min_speech_ms: int = 150  # 多短的声音算「开始说话」（越小越不易吞字头）
+    min_silence_ms: int = 800  # 停顿多久判定「说完了」（过短易截断句中停顿）
+    hangover_ms: int = 300  # 额外静音容忍，与 min_silence 相加后送入 VAD
+    speech_pad_ms: int = 450  # 句首前导保留：VAD 判定前最近 N 毫秒一并送入 ASR
+    min_segment_ms: int = 250  # 短于此长度的片段不送 ASR（过滤咳嗽/杂音）
+    min_segment_peak: float = 0.008  # 峰值过低视为无效片段
+    threshold: float = 0.4  # VAD 灵敏度（越低越易抓到轻声开头）
 
 
 @dataclass
@@ -79,6 +83,7 @@ class InputConfig:
     hotkey_record: str = "f9"
     auto_paste: bool = True
     preview_before_paste: bool = False
+    paste_restore_clipboard: bool = False  # 默认不恢复，避免与粘贴抢剪贴板
 
 
 @dataclass
@@ -125,14 +130,21 @@ class AppSettings:
                 language=os.getenv("TINGYI_LOCAL_LANGUAGE", "zh"),
             ),
             vad=VadConfig(
-                min_speech_ms=int(os.getenv("TINGYI_VAD_MIN_SPEECH_MS", "250")),
-                min_silence_ms=int(os.getenv("TINGYI_VAD_MIN_SILENCE_MS", "500")),
+                min_speech_ms=int(os.getenv("TINGYI_VAD_MIN_SPEECH_MS", "150")),
+                min_silence_ms=int(os.getenv("TINGYI_VAD_MIN_SILENCE_MS", "800")),
+                hangover_ms=int(os.getenv("TINGYI_VAD_HANGOVER_MS", "300")),
+                speech_pad_ms=int(os.getenv("TINGYI_VAD_SPEECH_PAD_MS", "450")),
+                min_segment_ms=int(os.getenv("TINGYI_VAD_MIN_SEGMENT_MS", "250")),
+                min_segment_peak=float(os.getenv("TINGYI_VAD_MIN_SEGMENT_PEAK", "0.008")),
+                threshold=float(os.getenv("TINGYI_VAD_THRESHOLD", "0.4")),
             ),
             input=InputConfig(
                 hotkey_record=os.getenv("TINGYI_HOTKEY_RECORD", "f9"),
                 auto_paste=os.getenv("TINGYI_AUTO_PASTE", "true").lower()
                 in ("1", "true", "yes"),
                 preview_before_paste=os.getenv("TINGYI_PREVIEW_BEFORE_PASTE", "false").lower()
+                in ("1", "true", "yes"),
+                paste_restore_clipboard=os.getenv("TINGYI_PASTE_RESTORE_CLIPBOARD", "false").lower()
                 in ("1", "true", "yes"),
             ),
             text=_text_config_from_env(),

@@ -10,6 +10,7 @@ venv/
 /models/
 /cache/
 /recordings/
+/logs/
 /dist/
 /build/
 *.wav

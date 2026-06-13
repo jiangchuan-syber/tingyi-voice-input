@@ -40,9 +40,10 @@ def _create_vad(config: VadConfig, *, max_record_seconds: float = 60.0):
 
     vad_config = sherpa_onnx.VadModelConfig()
     vad_config.silero_vad.model = sherpa_relative_path(model_path)
-    vad_config.silero_vad.threshold = 0.5
+    vad_config.silero_vad.threshold = config.threshold
     vad_config.silero_vad.min_speech_duration = config.min_speech_ms / 1000.0
-    vad_config.silero_vad.min_silence_duration = config.min_silence_ms / 1000.0
+    silence_s = (config.min_silence_ms + config.hangover_ms) / 1000.0
+    vad_config.silero_vad.min_silence_duration = silence_s
     vad_config.silero_vad.max_speech_duration = max_record_seconds
     vad_config.sample_rate = config.sample_rate
 
@@ -70,16 +71,20 @@ def _vad_listen_loop(
 
     if not quiet:
         print(f"麦克风：{default_input_device_label()}")
+        silence_s = (vad_cfg.min_silence_ms + vad_cfg.hangover_ms) / 1000
         if continuous:
-            print("持续监听中（停顿约 0.5 秒后自动识别每一段）…")
+            print(f"持续监听中（停顿约 {silence_s:g} 秒后自动识别每一段）…")
         else:
-            print("请开始说话（检测到语音后自动录音，停顿约 0.5 秒后结束）…")
+            print(f"请开始说话（检测到语音后自动录音，停顿约 {silence_s:g} 秒后结束）…")
 
     speech_started = False
     wait_started = time.monotonic()
     speech_started_at: float | None = None
     offset = 0
     buffer = np.array([], dtype=np.float32)
+    max_pre_roll = int(vad_cfg.speech_pad_ms / 1000.0 * sample_rate)
+    pre_roll_buffer = np.array([], dtype=np.float32)
+    segment_prefix = np.array([], dtype=np.float32)
 
     with _open_mic_stream(sample_rate) as stream:
         while not should_stop():
@@ -101,6 +106,9 @@ def _vad_listen_loop(
             samples, _ = stream.read(chunk_samples)
             chunk = samples.reshape(-1).astype(np.float32, copy=False)
             buffer = np.concatenate([buffer, chunk])
+            pre_roll_buffer = np.concatenate([pre_roll_buffer, chunk])
+            if pre_roll_buffer.size > max_pre_roll:
+                pre_roll_buffer = pre_roll_buffer[-max_pre_roll:]
 
             while offset + window_size <= len(buffer):
                 vad.accept_waveform(buffer[offset : offset + window_size])
@@ -109,20 +117,27 @@ def _vad_listen_loop(
                 if vad.is_speech_detected() and not speech_started:
                     speech_started = True
                     speech_started_at = time.monotonic()
+                    segment_prefix = pre_roll_buffer.copy()
                     if on_speech_start:
                         on_speech_start()
                     elif not quiet:
                         print("正在听…")
 
                 if speech_started and not vad.empty():
-                    segment = np.array(vad.front.samples, dtype=np.float32)
+                    raw_segment = np.array(vad.front.samples, dtype=np.float32)
                     vad.pop()
-                    if segment.size == 0:
+                    if raw_segment.size == 0:
                         if continuous:
                             speech_started = False
                             speech_started_at = None
+                            segment_prefix = np.array([], dtype=np.float32)
                             continue
                         raise RuntimeError("未录到有效语音，请重试。")
+                    if segment_prefix.size:
+                        segment = np.concatenate([segment_prefix, raw_segment])
+                    else:
+                        segment = raw_segment
+                    segment_prefix = np.array([], dtype=np.float32)
                     if not quiet:
                         print("检测到停顿，提交识别。")
                     on_segment(segment, sample_rate)

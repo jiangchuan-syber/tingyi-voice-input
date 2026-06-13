@@ -9,6 +9,7 @@ import sys
 from tingyi import __version__
 from tingyi.app.hotkey import HotkeyManager
 from tingyi.app.service import VoiceInputService
+from tingyi.log_config import get_log_file, open_log_file, setup_logging
 from tingyi.settings import ROOT
 
 logger = logging.getLogger(__name__)
@@ -28,10 +29,7 @@ def _make_icon():
 
 
 def run_desktop_app() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
+    log_path = setup_logging()
 
     service = VoiceInputService()
     if not service.is_ready():
@@ -60,6 +58,13 @@ def run_desktop_app() -> None:
         hotkey_mgr.stop()
         icon.stop()
 
+    def on_open_log(icon: pystray.Icon, _item) -> None:
+        try:
+            open_log_file()
+        except Exception:
+            logger.exception("open log failed")
+            notify("听译", f"日志路径：{get_log_file()}")
+
     menu = pystray.Menu(
         pystray.MenuItem(
             f"听译 v{__version__}（{hotkey}）",
@@ -69,6 +74,10 @@ def run_desktop_app() -> None:
         pystray.MenuItem(
             "开启/关闭持续监听",
             lambda *_: service.toggle_listening(),
+        ),
+        pystray.MenuItem(
+            "打开日志",
+            on_open_log,
         ),
         pystray.Menu.SEPARATOR,
         pystray.MenuItem("退出", on_quit),
@@ -82,5 +91,5 @@ def run_desktop_app() -> None:
     )
     icon_holder["icon"] = icon
 
-    logger.info("Desktop app started. ROOT=%s hotkey=%s", ROOT, hotkey)
+    logger.info("Desktop app started. ROOT=%s hotkey=%s log=%s", ROOT, hotkey, log_path)
     icon.run()

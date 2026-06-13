@@ -1,7 +1,7 @@
 {
   "terms": [
     {"canonical": "听译", "aliases": ["听易", "听一", "庭译", "听意", "ting yi", "tingyi"]},
-    {"canonical": "Tingyi", "aliases": ["ting yi", "听译"]},
+    {"canonical": "Tingyi", "aliases": ["ting yi"]},
 
     {"canonical": "工作经历挖掘", "aliases": ["工作经理挖掘", "工作经历", "work experience miner"]},
     {"canonical": "work-experience-miner", "aliases": ["work experience miner", "工作经历挖掘"]},
@@ -26,7 +26,7 @@
 
     {"canonical": "Cursor", "aliases": ["cursor", "科瑟", "柯瑟", "cursor IDE"]},
     {"canonical": "VS Code", "aliases": ["vscode", "vs code", "visual studio code"]},
-    {"canonical": "GitHub", "aliases": ["github", "git hub", "吉特哈布"]},
+    {"canonical": "GitHub", "aliases": ["github", "git hub", "吉特哈布", "吉特哈伯", "吉特哈尔", "igit hub"]},
     {"canonical": "OpenAI", "aliases": ["open ai", "openAI", "欧喷艾"]},
     {"canonical": "ChatGPT", "aliases": ["chat gpt", "chatGPT", "拆特GPT", "chat GPT", "GPT聊天"]},
     {"canonical": "GPT-4", "aliases": ["gpt4", "gpt 4", "GPT四", "gpt四", "GPT-4o", "gpt-4o"]},
@@ -36,8 +36,8 @@
     {"canonical": "DeepSeek", "aliases": ["deep seek", "deepseek", "深度求索", "深度寻求", "迪普seek"]},
     {"canonical": "deepseek-v4-flash", "aliases": ["deepseek v4 flash", "deep seek v4 flash", "深度求索v4"]},
     {"canonical": "deepseek-chat", "aliases": ["deepseek chat", "deep seek chat"]},
-    {"canonical": "Qwen", "aliases": ["qwen", "通义千问", "千问", "通义", "qwen2", "Qwen2"]},
-    {"canonical": "通义千问", "aliases": ["通义", "千问", "qwen", "Qwen"]},
+    {"canonical": "Qwen", "aliases": ["qwen", "qwen2", "Qwen2"]},
+    {"canonical": "通义千问", "aliases": ["通义千问模型"]},
     {"canonical": "Gemini", "aliases": ["gemini", "双子座", "gemini pro"]},
     {"canonical": "Llama", "aliases": ["llama", "LLaMA", "llama3", "Llama 3", "羊驼"]},
     {"canonical": "Mistral", "aliases": ["mistral", "米斯特拉尔"]},
@@ -52,7 +52,7 @@
     {"canonical": "OpenFlow", "aliases": ["open flow", "openflow"]},
     {"canonical": "Superwhisper", "aliases": ["super whisper", "superwhisper"]},
     {"canonical": "Ollama", "aliases": ["ollama", "奥拉马"]},
-    {"canonical": "Hugging Face", "aliases": ["hugging face", "huggingface", "HF", "抱抱脸"]},
+    {"canonical": "Hugging Face", "aliases": ["hugging face", "huggingface", "抱抱脸"]},
     {"canonical": "ONNX", "aliases": ["onnx", "欧恩艾克斯"]},
     {"canonical": "PyTorch", "aliases": ["pytorch", "py torch", "派托奇"]},
     {"canonical": "Codex", "aliases": ["codex", "科德克斯"]},
@@ -64,9 +64,17 @@
     {"canonical": "OpenAI API", "aliases": ["openai api", "open ai api"]},
     {"canonical": "API Key", "aliases": ["api key", "API密钥", "api密钥"]},
     {"canonical": "Python", "aliases": ["python", "派森", "蟒蛇"]},
-    {"canonical": "JavaScript", "aliases": ["javascript", "js", "java script"]},
-    {"canonical": "TypeScript", "aliases": ["typescript", "ts", "type script"]},
+    {"canonical": "JavaScript", "aliases": ["javascript", "java script"]},
+    {"canonical": "TypeScript", "aliases": ["typescript", "type script"]},
     {"canonical": "PowerShell", "aliases": ["powershell", "power shell"]},
     {"canonical": "PyInstaller", "aliases": ["pyinstaller", "py installer"]}
+  ],
+  "context_rules": [
+    {"pattern": "这个代码平台\\s*团队", "replacement": "这个代码平台 GitHub"},
+    {"pattern": "代码平台\\s*团队", "replacement": "代码平台 GitHub"},
+    {"pattern": "Git\\s*团队", "replacement": "GitHub"},
+    {"pattern": "git\\s*团队", "replacement": "GitHub"},
+    {"pattern": "开源平台\\s*团队", "replacement": "开源平台 GitHub"},
+    {"pattern": "代码托管\\s*团队", "replacement": "代码托管 GitHub"}
   ]
 }

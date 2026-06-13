@@ -36,11 +36,8 @@ def llm_refine(text: str) -> str:
         or os.getenv("DEEPSEEK_API_BASE")
         or "https://api.deepseek.com"
     ).rstrip("/")
-    model = (
-        os.getenv("TINGYI_REFINE_MODEL")
-        or os.getenv("DEEPSEEK_MODEL")
-        or "deepseek-chat"
-    ).strip()
+    # 润色用轻量 chat 模型；勿复用 DEEPSEEK_MODEL（可能是 v4-pro 等推理模型，易改义）
+    model = (os.getenv("TINGYI_REFINE_MODEL") or "deepseek-chat").strip()
 
     try:
         from openai import OpenAI
